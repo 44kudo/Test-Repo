@@ -1,5 +1,5 @@
 // vitest + RTL правильная инициализация
-import { expect, afterEach } from 'vitest';
+import { afterEach } from 'vitest';
 import { cleanup } from '@testing-library/react';
 // версия matchers для Vitest (не обычный jest-dom)
 import '@testing-library/jest-dom/vitest';
