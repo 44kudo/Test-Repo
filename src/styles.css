@@ -1,0 +1,53 @@
+body {
+  margin: 0;
+  font-family: sans-serif;
+  background: #222;
+  color: #eee;
+}
+
+.container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+input,
+select,
+textarea,
+button {
+  margin: 0.25rem;
+  padding: 0.5rem;
+}
+
+.contact-form {
+  display: flex;
+  flex-direction: column;
+}
+
+.contact-list {
+  list-style: none;
+  padding: 0;
+}
+
+.contact-item {
+  border-bottom: 1px solid #444;
+  padding: 0.5rem 0;
+}
+
+.error {
+  color: #f88;
+}
+
+@media (max-width: 600px) {
+  .container {
+    padding: 0.5rem;
+  }
+}
