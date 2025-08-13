@@ -1,0 +1,9 @@
+{
+  "name": "Astro CRM mini",
+  "short_name": "Astro CRM",
+  "start_url": "/Test-Repo/",
+  "scope": "/Test-Repo/",
+  "display": "standalone",
+  "background_color": "#0a0f16",
+  "theme_color": "#22ff88"
+}
