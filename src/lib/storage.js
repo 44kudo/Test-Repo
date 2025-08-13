@@ -1,159 +1,90 @@
-const KEY = 'mini-crm/contacts';
-const SEEDED = 'mini-crm/seeded';
+// src/lib/storage.js
+import { supabase, WORKSPACE_ID } from './api'
 
-const demoContacts = [
-  {
-    id: '1',
-    name: 'Alice',
-    phone: '123-456',
-    email: 'alice@example.com',
-    status: 'New',
-    notes: 'First contact',
-    tasks: [],
-  },
-  {
-    id: '2',
-    name: 'Bob',
-    phone: '555-123',
-    email: 'bob@example.com',
-    status: 'In Progress',
-    notes: '',
-    tasks: [],
-  },
-  {
-    id: '3',
-    name: 'Carol',
-    phone: '987-654',
-    email: 'carol@example.com',
-    status: 'Won',
-    notes: '',
-    tasks: [],
-  },
-];
+const CACHE_KEY = 'astro-crm-cache'
 
-const makeId = () =>
-  globalThis.crypto?.randomUUID?.() ??
-  Math.random().toString(36).slice(2) + Date.now().toString(36);
-
-export function loadContacts() {
-  const raw = localStorage.getItem(KEY);
-  let contacts = raw ? JSON.parse(raw) : [];
-  let changed = false;
-  contacts = contacts.map((c) => {
-    if (!c.id) {
-      c.id = makeId();
-      changed = true;
-    }
-    if (!Array.isArray(c.tasks)) {
-      c.tasks = [];
-      changed = true;
-    }
-    return c;
-  });
-  if (changed) saveContacts(contacts);
-  return contacts;
+// ───── helpers: cache ──────────────────────────────────────────
+function readCache() {
+  try { return JSON.parse(localStorage.getItem(CACHE_KEY) || '[]') }
+  catch { return [] }
+}
+function writeCache(list) {
+  localStorage.setItem(CACHE_KEY, JSON.stringify(list))
 }
 
-export function saveContacts(contacts) {
-  localStorage.setItem(KEY, JSON.stringify(contacts));
-}
+// ───── public API used by App.jsx ──────────────────────────────
+/** Загружаем список: сервер → кэш → UI.
+ *  Если офлайн/ошибка — вернём кэш, чтобы UI не «падал».
+ */
+export async function loadContacts() {
+  const { data, error } = await supabase
+    .from('crm_buckets')
+    .select('data, updated_at')
+    .eq('workspace_id', WORKSPACE_ID)
+    .single()
 
-export function seedIfEmpty() {
-  const existing = loadContacts();
-  if (existing.length === 0 && localStorage.getItem(SEEDED) !== '1') {
-    localStorage.setItem(SEEDED, '1');
-    saveContacts(demoContacts);
-    return demoContacts;
+  if (error) {
+    // офлайн: даём кэш, UI продолжает работать
+    return readCache()
   }
-  return existing;
+  const list = data?.data ?? []
+  writeCache(list)   // синхронизируем локальную копию
+  return list
 }
 
-export function resetDemo() {
-  localStorage.removeItem(SEEDED);
-  saveContacts(demoContacts);
-  return demoContacts;
-}
-
-export function clearAllContacts() {
-  saveContacts([]);
-  localStorage.setItem(SEEDED, '1');
-}
-
-export function getById(id) {
-  return loadContacts().find((c) => c.id === id);
-}
-
-export function getTasks(contactId) {
-  const contact = getById(contactId);
-  if (!contact) return [];
-  return [...contact.tasks].sort((a, b) => {
-    if (a.done !== b.done) return a.done ? 1 : -1;
-    if (!a.done) {
-      if (a.dueDate && b.dueDate) return a.dueDate.localeCompare(b.dueDate);
-      if (!a.dueDate && b.dueDate) return 1;
-      if (a.dueDate && !b.dueDate) return -1;
-      return 0;
-    }
-    return 0;
-  });
-}
-
-export function addTask(contactId, { title, dueDate }) {
-  const contacts = loadContacts();
-  const contact = contacts.find((c) => c.id === contactId);
-  if (!contact) return null;
-  const task = {
-    id: makeId(),
-    title,
-    dueDate: dueDate || '',
-    done: false,
-    createdAt: new Date().toISOString(),
-  };
-  contact.tasks.push(task);
-  saveContacts(contacts);
-  return task;
-}
-
-export function toggleTaskDone(contactId, taskId) {
-  const contacts = loadContacts();
-  const contact = contacts.find((c) => c.id === contactId);
-  if (!contact) return null;
-  const task = contact.tasks.find((t) => t.id === taskId);
-  if (task) {
-    task.done = !task.done;
-    saveContacts(contacts);
+/** Сохранение: сначала пишем в кэш (моментально в UI), затем — на сервер.
+ *  После успешного апсёрта Realtime обновит и другие устройства.
+ */
+export async function saveContacts(list) {
+  writeCache(list) // optimistic update для офлайна
+  const { error } = await supabase
+    .from('crm_buckets')
+    .upsert({ workspace_id: WORKSPACE_ID, data: list })
+  if (error) {
+    console.error('saveContacts:', error.message)
   }
-  return task;
 }
 
-export function updateTask(contactId, taskId, patch) {
-  const contacts = loadContacts();
-  const contact = contacts.find((c) => c.id === contactId);
-  if (!contact) return null;
-  const task = contact.tasks.find((t) => t.id === taskId);
-  if (task) {
-    Object.assign(task, patch);
-    saveContacts(contacts);
-  }
-  return task;
+/** Сброс демо-данных (можно убрать, если демо не нужно) */
+export async function resetDemo() {
+  const demo = [
+    { id: crypto.randomUUID(), name: 'Alice New',  phone: '123-456', note: 'First contact', stage: 'new',         tasks: [] },
+    { id: crypto.randomUUID(), name: 'Bob In Progress', phone: '555-123', note: '',         stage: 'in_progress', tasks: [] },
+    { id: crypto.randomUUID(), name: 'Carol Won', phone: '987-654', note: '',               stage: 'won',        tasks: [] }
+  ]
+  await saveContacts(demo)
+  return demo
 }
 
-export function deleteTask(contactId, taskId) {
-  const contacts = loadContacts();
-  const contact = contacts.find((c) => c.id === contactId);
-  if (!contact) return null;
-  contact.tasks = contact.tasks.filter((t) => t.id !== taskId);
-  saveContacts(contacts);
-  return true;
+/** Очистка всех контактов */
+export async function clearAllContacts() {
+  await saveContacts([])
+  return []
 }
 
-export function updateStatus(id, newStatus) {
-  const contacts = loadContacts();
-  const contact = contacts.find((c) => c.id === id);
-  if (contact) {
-    contact.status = newStatus;
-    saveContacts(contacts);
-  }
-  return contact;
+/** Первичная инициализация: если пусто — накидываем демо */
+export async function seedIfEmpty() {
+  const list = await loadContacts()
+  if (!list || list.length === 0) return resetDemo()
+  return list
 }
+
+/** Realtime подписка — при серверном UPDATE подтягиваем свежие данные */
+export function subscribeToRemoteChanges(onChange) {
+  const channel = supabase
+    .channel('realtime:crm_buckets')
+    .on(
+      'postgres_changes',
+      { event: 'UPDATE', schema: 'public', table: 'crm_buckets', filter: `workspace_id=eq.${WORKSPACE_ID}` },
+      async () => {
+        const fresh = await loadContacts()
+        onChange(fresh)
+      }
+    )
+    .subscribe()
+
+  // функция отписки — вызовется в cleanup эффекта React
+  return () => supabase.removeChannel(channel)
+}
+
 
