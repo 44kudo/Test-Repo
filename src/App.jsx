@@ -8,6 +8,7 @@ import {
   clearAllContacts,
   saveContacts,
   loadContacts,
+   subscribeToRemoteChanges,   
 } from './lib/storage';
 
 export default function App() {
@@ -21,8 +22,25 @@ export default function App() {
     window.navigator.standalone;
 
   useEffect(() => {
-    setContacts(seedIfEmpty());
-  }, []);
+  let alive = true;
+
+  // 1) Стартовая загрузка (async)
+  (async () => {
+    const list = await seedIfEmpty();
+    if (alive) setContacts(list);
+  })();
+
+  // 2) Реалтайм-подписка
+  const unsubscribe = subscribeToRemoteChanges((fresh) => {
+    if (alive) setContacts(fresh);
+  });
+
+  // 3) Отписка при размонтировании
+  return () => {
+    alive = false;
+    unsubscribe?.();
+  };
+}, []);
 
   useEffect(() => {
     const handler = (e) => {
@@ -40,15 +58,15 @@ export default function App() {
     setInstallPrompt(null);
   };
 
-  const handleReset = () => {
-    resetDemo();
-    setContacts(loadContacts());
-  };
+  const handleReset = async () => {
+  const list = await resetDemo();      // resetDemo уже возвращает новые данные
+  setContacts(list);
+};
 
-  const handleClear = () => {
-    clearAllContacts();
-    setContacts(loadContacts());
-  };
+  const handleClear = async () => {
+  const list = await clearAllContacts();  // clearAllContacts возвращает []
+  setContacts(list);
+};
 
   const openContact = (id) => {
     setSelectedId(id);
