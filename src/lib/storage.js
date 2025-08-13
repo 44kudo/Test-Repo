@@ -1,4 +1,5 @@
 const KEY = 'mini-crm/contacts';
+const SEEDED = 'mini-crm/seeded';
 
 const demoContacts = [
   {
@@ -59,7 +60,8 @@ export function saveContacts(contacts) {
 
 export function seedIfEmpty() {
   const existing = loadContacts();
-  if (existing.length === 0) {
+  if (existing.length === 0 && localStorage.getItem(SEEDED) !== '1') {
+    localStorage.setItem(SEEDED, '1');
     saveContacts(demoContacts);
     return demoContacts;
   }
@@ -67,22 +69,33 @@ export function seedIfEmpty() {
 }
 
 export function resetDemo() {
+  localStorage.removeItem(SEEDED);
   saveContacts(demoContacts);
   return demoContacts;
+}
+
+export function clearAllContacts() {
+  saveContacts([]);
+  localStorage.setItem(SEEDED, '1');
 }
 
 export function getById(id) {
   return loadContacts().find((c) => c.id === id);
 }
 
-export function updateStatus(id, newStatus) {
-  const contacts = loadContacts();
-  const contact = contacts.find((c) => c.id === id);
-  if (contact) {
-    contact.status = newStatus;
-    saveContacts(contacts);
-  }
-  return contact;
+export function getTasks(contactId) {
+  const contact = getById(contactId);
+  if (!contact) return [];
+  return [...contact.tasks].sort((a, b) => {
+    if (a.done !== b.done) return a.done ? 1 : -1;
+    if (!a.done) {
+      if (a.dueDate && b.dueDate) return a.dueDate.localeCompare(b.dueDate);
+      if (!a.dueDate && b.dueDate) return 1;
+      if (a.dueDate && !b.dueDate) return -1;
+      return 0;
+    }
+    return 0;
+  });
 }
 
 export function addTask(contactId, { title, dueDate }) {
@@ -112,3 +125,35 @@ export function toggleTaskDone(contactId, taskId) {
   }
   return task;
 }
+
+export function updateTask(contactId, taskId, patch) {
+  const contacts = loadContacts();
+  const contact = contacts.find((c) => c.id === contactId);
+  if (!contact) return null;
+  const task = contact.tasks.find((t) => t.id === taskId);
+  if (task) {
+    Object.assign(task, patch);
+    saveContacts(contacts);
+  }
+  return task;
+}
+
+export function deleteTask(contactId, taskId) {
+  const contacts = loadContacts();
+  const contact = contacts.find((c) => c.id === contactId);
+  if (!contact) return null;
+  contact.tasks = contact.tasks.filter((t) => t.id !== taskId);
+  saveContacts(contacts);
+  return true;
+}
+
+export function updateStatus(id, newStatus) {
+  const contacts = loadContacts();
+  const contact = contacts.find((c) => c.id === id);
+  if (contact) {
+    contact.status = newStatus;
+    saveContacts(contacts);
+  }
+  return contact;
+}
+

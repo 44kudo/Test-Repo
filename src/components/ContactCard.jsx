@@ -17,7 +17,9 @@ export default function ContactCard({ contact, onOpen }) {
         <span className="cc-status">{contact.status}</span>
       </div>
       <div className="cc-phone">{contact.phone}</div>
-      <div className="cc-tasks">{contact.tasks.length} tasks</div>
+      <div className="cc-tasks">
+        {contact.tasks.filter((t) => !t.done).length}/{contact.tasks.length} tasks
+      </div>
       {contact.notes && <div className="cc-notes">{contact.notes}</div>}
     </div>
   );

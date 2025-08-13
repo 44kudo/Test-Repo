@@ -1,17 +1,19 @@
 import { useState, useEffect } from 'react';
 import KanbanBoard from './components/KanbanBoard';
 import ContactModal from './components/ContactModal';
+import ContactForm from './components/ContactForm';
 import {
   seedIfEmpty,
   resetDemo,
+  clearAllContacts,
   saveContacts,
   loadContacts,
-  getById,
 } from './lib/storage';
 
 export default function App() {
   const [contacts, setContacts] = useState([]);
-  const [active, setActive] = useState(null);
+  const [selectedId, setSelectedId] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     setContacts(seedIfEmpty());
@@ -22,20 +24,19 @@ export default function App() {
     setContacts(loadContacts());
   };
 
+  const handleClear = () => {
+    clearAllContacts();
+    setContacts(loadContacts());
+  };
+
   const openContact = (id) => {
-    const c = getById(id);
-    if (c) setActive(c);
+    setSelectedId(id);
+    setIsModalOpen(true);
   };
 
   const openNew = () => {
-    setActive({
-      name: '',
-      phone: '',
-      email: '',
-      status: 'New',
-      notes: '',
-      tasks: [],
-    });
+    setSelectedId(null);
+    setIsModalOpen(true);
   };
 
   const handleCreate = (data) => {
@@ -49,28 +50,39 @@ export default function App() {
     };
     saveContacts([...existing, newContact]);
     setContacts(loadContacts());
+    setIsModalOpen(false);
   };
 
   return (
-    <div className="app">
+    <div className="app astro-grid">
       <header className="app-header">
         <div>
-          <h1>Mini CRM</h1>
+          <h1>Astro CRM mini</h1>
           <small>Kanban</small>
         </div>
         <div className="header-actions">
+          <button onClick={handleClear}>Clear all</button>
           <button onClick={handleReset}>Reset demo data</button>
           <button onClick={openNew}>New contact</button>
         </div>
       </header>
       <KanbanBoard contacts={contacts} onChange={setContacts} onOpen={openContact} />
-      {active && (
+      {isModalOpen && selectedId && (
         <ContactModal
-          contact={active}
-          onClose={() => setActive(null)}
-          onCreate={handleCreate}
-          onChange={setContacts}
+          contactId={selectedId}
+          onClose={() => setIsModalOpen(false)}
+          onDataChange={() => setContacts(loadContacts())}
         />
+      )}
+      {isModalOpen && selectedId === null && (
+        <div className="modal-overlay" onClick={() => setIsModalOpen(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <button className="modal-close" onClick={() => setIsModalOpen(false)}>
+              ×
+            </button>
+            <ContactForm onAdd={handleCreate} />
+          </div>
+        </div>
       )}
     </div>
   );

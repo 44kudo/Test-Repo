@@ -1,24 +1,41 @@
 :root {
-  --bg: #0b0f1a;
-  --bg-2: #101826;
+  --bg: #0a0f16;
+  --bg-2: #0f1a24;
   --panel: rgba(255, 255, 255, 0.06);
   --panel-border: rgba(255, 255, 255, 0.12);
-  --text: #e6e9f0;
-  --muted: #9aa4b2;
-  --accent: #7c5cff;
-  --good: #38ef7d;
+  --text: #e6f1ee;
+  --muted: #9fb1ac;
+  --accent: #22ff88;
+  --good: #22ff88;
   --warn: #ffd166;
   --bad: #ff5c7a;
   --radius: 18px;
-  --shadow: 0 8px 30px rgba(124, 92, 255, 0.18);
+  --shadow: 0 10px 30px rgba(34, 255, 136, 0.18);
 }
 
 body {
   margin: 0;
   font-family: sans-serif;
-  background: linear-gradient(120deg, var(--bg), var(--bg-2));
+  background: radial-gradient(1200px 600px at 15% 10%, rgba(34, 255, 136, 0.1), transparent 60%),
+    radial-gradient(900px 500px at 85% 20%, rgba(34, 255, 136, 0.08), transparent 60%),
+    radial-gradient(700px 400px at 40% 90%, rgba(34, 255, 136, 0.06), transparent 60%),
+    linear-gradient(120deg, var(--bg), var(--bg-2));
   color: var(--text);
   -webkit-font-smoothing: antialiased;
+  min-height: 100dvh;
+}
+
+.astro-grid::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(1px 1px at 10% 20%, rgba(255, 255, 255, 0.08) 50%, transparent 60%),
+    radial-gradient(1px 1px at 80% 10%, rgba(255, 255, 255, 0.06) 50%, transparent 60%),
+    radial-gradient(1px 1px at 30% 70%, rgba(255, 255, 255, 0.06) 50%, transparent 60%);
+  filter: blur(0.2px);
 }
 
 .app {
@@ -65,6 +82,21 @@ body {
 .modal:hover {
   border-color: var(--accent);
   box-shadow: var(--shadow), 0 0 6px var(--accent);
+}
+
+button {
+  border-radius: var(--radius);
+  border: 1px solid var(--panel-border);
+  background: var(--panel);
+  color: var(--text);
+  padding: 0.4rem 0.6rem;
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+button:hover {
+  border-color: var(--accent);
+  box-shadow: 0 0 6px var(--accent);
 }
 
 .kanban-column {
@@ -153,5 +185,14 @@ body {
 @media (max-width: 700px) {
   .kanban-columns {
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+    animation: none !important;
   }
 }
