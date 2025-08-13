@@ -14,10 +14,31 @@ export default function App() {
   const [contacts, setContacts] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [installPrompt, setInstallPrompt] = useState(null);
+  const isIos = /iphone|ipad|ipod/i.test(window.navigator.userAgent);
+  const isStandalone =
+    window.matchMedia?.('(display-mode: standalone)')?.matches ||
+    window.navigator.standalone;
 
   useEffect(() => {
     setContacts(seedIfEmpty());
   }, []);
+
+  useEffect(() => {
+    const handler = (e) => {
+      e.preventDefault();
+      setInstallPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  const handleInstall = async () => {
+    if (!installPrompt) return;
+    installPrompt.prompt();
+    await installPrompt.userChoice;
+    setInstallPrompt(null);
+  };
 
   const handleReset = () => {
     resetDemo();
@@ -64,8 +85,14 @@ export default function App() {
           <button onClick={handleClear}>Clear all</button>
           <button onClick={handleReset}>Reset demo data</button>
           <button onClick={openNew}>New contact</button>
+          {installPrompt && (
+            <button onClick={handleInstall}>Install app</button>
+          )}
         </div>
       </header>
+      {isIos && !isStandalone && (
+        <p className="ios-tip">Share → Add to Home Screen</p>
+      )}
       <KanbanBoard contacts={contacts} onChange={setContacts} onOpen={openContact} />
       {isModalOpen && selectedId && (
         <ContactModal
