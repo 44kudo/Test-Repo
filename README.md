@@ -1,4 +1,4 @@
-# Mini CRM — Sprint 1
+# Astro CRM mini — Sprint 1
 
 Простой учебный проект на React + Vite.
 

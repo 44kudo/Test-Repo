@@ -1,52 +1,68 @@
 import { useEffect, useState } from 'react';
 import {
+  getById,
+  getTasks,
   addTask,
   toggleTaskDone,
-  getById,
-  loadContacts,
+  updateTask,
+  deleteTask,
 } from '../lib/storage';
 
-export default function ContactModal({ contact, onClose, onCreate, onChange }) {
-  const isNew = !contact.id;
-  const [form, setForm] = useState(contact);
-  const [taskTitle, setTaskTitle] = useState('');
-  const [taskDue, setTaskDue] = useState('');
-
-  useEffect(() => {
-    const handleKey = (e) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', handleKey);
-    return () => window.removeEventListener('keydown', handleKey);
-  }, [onClose]);
+export default function ContactModal({ contactId, onClose, onDataChange }) {
+  const [contact, setContact] = useState(() => getById(contactId));
+  const [title, setTitle] = useState('');
+  const [due, setDue] = useState('');
+  const [filter, setFilter] = useState('Open');
+  const [editing, setEditing] = useState(null); // taskId
+  const [editTitle, setEditTitle] = useState('');
 
   const refresh = () => {
-    if (!isNew) {
-      const fresh = getById(contact.id);
-      setForm(fresh);
-      onChange(loadContacts());
-    }
+    setContact(getById(contactId));
+    onDataChange();
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    onCreate(form);
-    onClose();
-  };
+  useEffect(() => {
+    const onKey = (e) => e.key === 'Escape' && onClose();
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
 
-  const handleAddTask = (e) => {
+  const handleAdd = (e) => {
     e.preventDefault();
-    if (!taskTitle) return;
-    addTask(form.id, { title: taskTitle, dueDate: taskDue });
-    setTaskTitle('');
-    setTaskDue('');
+    if (!title) return;
+    addTask(contactId, { title, dueDate: due });
+    setTitle('');
+    setDue('');
     refresh();
   };
 
-  const handleToggle = (taskId) => {
-    toggleTaskDone(form.id, taskId);
+  const handleToggle = (id) => {
+    toggleTaskDone(contactId, id);
     refresh();
   };
+
+  const handleDelete = (id) => {
+    deleteTask(contactId, id);
+    refresh();
+  };
+
+  const startEdit = (task) => {
+    setEditing(task.id);
+    setEditTitle(task.title);
+  };
+
+  const commitEdit = (task) => {
+    updateTask(contactId, task.id, { title: editTitle });
+    setEditing(null);
+    setEditTitle('');
+    refresh();
+  };
+
+  const tasks = getTasks(contactId).filter((t) => {
+    if (filter === 'Open') return !t.done;
+    if (filter === 'Done') return t.done;
+    return true;
+  });
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -54,86 +70,91 @@ export default function ContactModal({ contact, onClose, onCreate, onChange }) {
         <button className="modal-close" onClick={onClose}>
           ×
         </button>
-        {isNew ? (
-          <form onSubmit={handleSubmit} className="modal-form">
-            <input
-              placeholder="Name"
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-            />
-            <input
-              placeholder="Phone"
-              value={form.phone}
-              onChange={(e) => setForm({ ...form, phone: e.target.value })}
-            />
-            <input
-              placeholder="Email"
-              value={form.email}
-              onChange={(e) => setForm({ ...form, email: e.target.value })}
-            />
-            <select
-              value={form.status}
-              onChange={(e) => setForm({ ...form, status: e.target.value })}
-            >
-              <option>New</option>
-              <option>In Progress</option>
-              <option>Won</option>
-              <option>Lost</option>
-            </select>
-            <textarea
-              placeholder="Notes"
-              value={form.notes}
-              onChange={(e) => setForm({ ...form, notes: e.target.value })}
-            />
-            <button type="submit">Create</button>
-          </form>
-        ) : (
+        {contact && (
           <div className="contact-details">
-            <p>
-              <strong>Name:</strong> {form.name}
-            </p>
-            <p>
-              <strong>Phone:</strong> {form.phone}
-            </p>
-            <p>
-              <strong>Email:</strong> {form.email}
-            </p>
-            <p>
-              <strong>Status:</strong> {form.status}
-            </p>
-            <p>
-              <strong>Notes:</strong> {form.notes}
-            </p>
+            <div className="cm-header">
+              <h3>{contact.name}</h3>
+              <p>{contact.phone}</p>
+              <p>{contact.email}</p>
+              <p>Status: {contact.status}</p>
+            </div>
             <div className="tasks-block">
-              <h4>Tasks</h4>
-              <ul>
-                {form.tasks.map((t) => (
-                  <li key={t.id}>
-                    <label>
-                      <input
-                        type="checkbox"
-                        checked={t.done}
-                        onChange={() => handleToggle(t.id)}
-                      />
-                      {t.title}
-                      {t.dueDate && <small> ({t.dueDate})</small>}
-                    </label>
-                  </li>
-                ))}
-              </ul>
-              <form onSubmit={handleAddTask} className="task-form">
+              <form onSubmit={handleAdd} className="task-form">
                 <input
-                  placeholder="Task title"
-                  value={taskTitle}
-                  onChange={(e) => setTaskTitle(e.target.value)}
+                  placeholder="New task…"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
                 />
                 <input
                   type="date"
-                  value={taskDue}
-                  onChange={(e) => setTaskDue(e.target.value)}
+                  value={due}
+                  onChange={(e) => setDue(e.target.value)}
                 />
                 <button type="submit">Add</button>
               </form>
+              <div className="task-filters">
+                {['Open', 'All', 'Done'].map((f) => (
+                  <button
+                    key={f}
+                    type="button"
+                    className={filter === f ? 'active' : ''}
+                    onClick={() => setFilter(f)}
+                  >
+                    {f}
+                  </button>
+                ))}
+              </div>
+              <ul className="task-list">
+                {tasks.length === 0 && <li>No tasks yet</li>}
+                {tasks.map((t) => (
+                  <li key={t.id}>
+                    <input
+                      type="checkbox"
+                      checked={t.done}
+                      onChange={() => handleToggle(t.id)}
+                    />
+                    {editing === t.id ? (
+                      <input
+                        value={editTitle}
+                        onChange={(e) => setEditTitle(e.target.value)}
+                        onBlur={() => commitEdit(t)}
+                        onKeyDown={(e) =>
+                          e.key === 'Enter' && commitEdit(t)
+                        }
+                        autoFocus
+                      />
+                    ) : (
+                      <span onDoubleClick={() => startEdit(t)}>{t.title}</span>
+                    )}
+                    {t.dueDate && (
+                      <input
+                        type="date"
+                        value={t.dueDate}
+                        onChange={(e) => {
+                          updateTask(contactId, t.id, { dueDate: e.target.value });
+                          refresh();
+                        }}
+                      />
+                    )}
+                    {!t.dueDate && (
+                      <input
+                        type="date"
+                        onChange={(e) => {
+                          updateTask(contactId, t.id, { dueDate: e.target.value });
+                          refresh();
+                        }}
+                      />
+                    )}
+                    <button
+                      type="button"
+                      className="task-delete"
+                      onClick={() => handleDelete(t.id)}
+                    >
+                      🗑
+                    </button>
+                  </li>
+                ))}
+              </ul>
             </div>
           </div>
         )}
@@ -141,3 +162,4 @@ export default function ContactModal({ contact, onClose, onCreate, onChange }) {
     </div>
   );
 }
+
