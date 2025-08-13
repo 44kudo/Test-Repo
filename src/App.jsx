@@ -1,56 +1,77 @@
 import { useState, useEffect } from 'react';
-import ContactForm from './components/ContactForm';
-import ContactList from './components/ContactList';
-import { saveContacts, seedIfEmpty, resetDemo } from './lib/storage';
+import KanbanBoard from './components/KanbanBoard';
+import ContactModal from './components/ContactModal';
+import {
+  seedIfEmpty,
+  resetDemo,
+  saveContacts,
+  loadContacts,
+  getById,
+} from './lib/storage';
 
 export default function App() {
   const [contacts, setContacts] = useState([]);
-  const [query, setQuery] = useState('');
-  const [status, setStatus] = useState('');
+  const [active, setActive] = useState(null);
 
   useEffect(() => {
     setContacts(seedIfEmpty());
   }, []);
 
-  const handleAdd = (contact) => {
-    const updated = [...contacts, contact];
-    setContacts(updated);
-    saveContacts(updated);
-  };
-
   const handleReset = () => {
-    const demo = resetDemo();
-    setContacts(demo);
+    resetDemo();
+    setContacts(loadContacts());
   };
 
-  const filtered = contacts.filter((c) => {
-    const q = query.toLowerCase();
-    const matchesQuery =
-      c.name.toLowerCase().includes(q) || c.phone.toLowerCase().includes(q);
-    const matchesStatus = status ? c.status === status : true;
-    return matchesQuery && matchesStatus;
-  });
+  const openContact = (id) => {
+    const c = getById(id);
+    if (c) setActive(c);
+  };
+
+  const openNew = () => {
+    setActive({
+      name: '',
+      phone: '',
+      email: '',
+      status: 'New',
+      notes: '',
+      tasks: [],
+    });
+  };
+
+  const handleCreate = (data) => {
+    const existing = loadContacts();
+    const newContact = {
+      ...data,
+      id:
+        globalThis.crypto?.randomUUID?.() ??
+        Math.random().toString(36).slice(2) + Date.now().toString(36),
+      tasks: [],
+    };
+    saveContacts([...existing, newContact]);
+    setContacts(loadContacts());
+  };
 
   return (
-    <div className="container">
-      <h1>Mini CRM</h1>
-      <div className="controls">
-        <input
-          placeholder="Search"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
+    <div className="app">
+      <header className="app-header">
+        <div>
+          <h1>Mini CRM</h1>
+          <small>Kanban</small>
+        </div>
+        <div className="header-actions">
+          <button onClick={handleReset}>Reset demo data</button>
+          <button onClick={openNew}>New contact</button>
+        </div>
+      </header>
+      <KanbanBoard contacts={contacts} onChange={setContacts} onOpen={openContact} />
+      {active && (
+        <ContactModal
+          contact={active}
+          onClose={() => setActive(null)}
+          onCreate={handleCreate}
+          onChange={setContacts}
         />
-        <select value={status} onChange={(e) => setStatus(e.target.value)}>
-          <option value="">All</option>
-          <option value="New">New</option>
-          <option value="In Progress">In Progress</option>
-          <option value="Won">Won</option>
-          <option value="Lost">Lost</option>
-        </select>
-        <button onClick={handleReset}>Reset demo data</button>
-      </div>
-      <ContactForm onAdd={handleAdd} />
-      <ContactList contacts={filtered} />
+      )}
     </div>
   );
 }
